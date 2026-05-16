@@ -1,0 +1,74 @@
+# esphome-raex — example device config.
+#
+# Copy this into your ESPHome dir, set each cover's remote_id/channel_id from
+# the discovery log (see README "Discovering a remote"), and provide the
+# referenced secrets in your secrets.yaml. Safe to flash to multiple boards:
+# name_add_mac_suffix gives each one a unique raex-xxxxxx.local hostname, so
+# no per-device editing is needed.
+
+substitutions:
+  name: raex
+  friendly_name: Raex
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  name_add_mac_suffix: true
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+external_components:
+  - source: github://pfak/esphome-raex@main
+    components: [raex_blind]
+
+logger:
+
+api:
+  encryption:
+    key: !secret raex_api_key        # `esphome ... ` generates one, or use any 32-byte base64
+
+ota:
+  - platform: esphome
+    password: !secret raex_ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  power_save_mode: none              # CC1101 + mesh APs: avoids 'Auth Expired' drops
+  ap:
+    ssid: "Raex Fallback"
+
+captive_portal:
+
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO15
+  miso_pin: GPIO16
+
+raex_blind:
+  id: raex_blind_transmit
+  cs_pin: GPIO13
+  gdo0_pin: GPIO4
+  rx_pin: GPIO36                     # optional; omit for TX-only (no live-sync)
+  # frequency: 433.92MHz             # optional override (default)
+
+cover:
+  - platform: raex_blind
+    # PLACEHOLDER values — get the real remote_id/channel_id from the
+    # "Discovering a remote" log (see README). remote_id is the little-endian
+    # integer of the on-air ID bytes.
+    remote_id: 12345
+    channel_id: 200
+    name: "Example Blind"
+    device_class: blind
+    open_time: 17s                   # full close -> open (measure this blind)
+    close_time: 17s                  # full open -> close
+    micro_step: 0.5%                 # micro-up/down nudge per press
+    # Extra remotes for THIS blind. Listing the same alias under several covers
+    # makes it a group (a remote's group/ALL button fans out to all of them).
+    aliases:
+      - remote_id: 54321
+        channel_id: 201
